@@ -1,5 +1,9 @@
 from collections import deque
 
+from .settle import solve_linear, solve_loop_composition
+
+__all__ = ['finish_order', 'witness', 'find_cycles', 'solve_linear', 'solve_loop_composition']
+
 
 def finish_order(edges):
     seen, finished=set(),[]

@@ -1,2 +1,72 @@
-<div class="receipt-stack"><section class="panel bill"><div class="heading"><h2>重量勾稽卷联</h2><mark class="{{ 'pass' if records.balance.balanced else 'hold' }}">{{ '重量已对平' if records.balance.balanced else '差额待核' }}</mark></div><div class="table-wrap"><table><thead><tr><th>工作批</th><th>总秤 g</th><th>灌装 g</th><th>损耗 g</th><th>余量 g</th><th>待证 g</th><th>状态</th></tr></thead><tbody>{% for id,row in records.balance.jobs|dictsort %}<tr class="{{ 'picked' if work==id }}"><th scope="row"><a href="{{ url_for('roast_station.counter',view='lineage',work=id,sample=sample,run=key) }}">{{ id }}</a></th><td>{{ mass(row.input_g) }}</td><td>{{ mass(row.pack_g) }}</td><td>{{ mass(row.loss_g) }}</td><td>{{ mass(row.remainder_g) }}</td><td>{{ mass(row.pending_g) }}</td><td class="{{ 'hold' if row.codes else 'pass' }}">{{ '待证' if row.codes else '已核' }}</td></tr>{% endfor %}</tbody></table></div></section>
-<section class="panel stub"><div class="heading"><h2>仓内核销</h2><span>称签第二联</span></div><div class="warehouse"><div><b>{{ mass(totals.origin_used_g) }} g</b><span>原料净领</span></div><div><b>{{ mass(totals.hold_g) }} g</b><span>工作批余料</span></div><div><b>{{ mass(totals.return_stock_g) }} g</b><span>未领返料</span></div><div><b>{{ mass(totals.delta_g) }} g</b><span>核销差额</span></div></div><p class="approved">复核签字 __________________</p></section></div>
+<div class="receipt-stack">
+  <section class="panel bill">
+    <div class="heading">
+      <h2>重量勾稽卷联</h2><span>重量对账</span>
+      <mark class="{{ 'pass' if records.balance.balanced else 'hold' }}">{{ '重量已对平' if records.balance.balanced else '差额待核' }}</mark>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>工作批</th><th>总秤 g</th><th>灌装 g</th><th>损耗 g</th><th>余量 g</th><th>待证 g</th><th>状态</th></tr></thead>
+        <tbody>
+        {% for id,row in records.balance.jobs|dictsort %}
+          <tr class="{{ 'picked' if work==id }}">
+            <th scope="row"><a href="{{ url_for('roast_station.counter',view='lineage',work=id,sample=sample,run=key) }}">{{ id }}</a></th>
+            <td>{{ mass(row.input_g) }}</td><td>{{ mass(row.pack_g) }}</td><td>{{ mass(row.loss_g) }}</td>
+            <td>{{ mass(row.remainder_g) }}</td><td>{{ mass(row.pending_g) }}</td>
+            <td class="{{ 'hold' if row.codes else 'pass' }}">{{ '待证' if row.codes else '已核' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel bill" id="cycle-settlements" data-cycle-settlements="{{ records.balance.cycle_settlements|length }}">
+    <div class="heading">
+      <h2>循环返料结清联</h2><span>交班净重核销</span>
+      <button id="commit" type="button" data-key="{{ key or '' }}" data-sample="{{ sample }}" data-view="balance">{{ '复跑并核对结清' if key else '结清循环返料并归档' }}</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>循环卷联</th><th>圈内返料 g</th><th>外来产地料 g</th><th>结清状态</th><th>领用后余料 g</th></tr></thead>
+        <tbody>
+        {% for item in records.balance.cycle_settlements %}
+          <tr>
+            <th scope="row">
+              {% for member in item.members %}<a href="{{ url_for('roast_station.counter',view='lineage',work=member,sample=sample,run=key) }}">{{ member }}</a>{% if not loop.last %} → {% endif %}{% endfor %}
+              {% if item.path and item.path[-1] == item.path[0] %} → {{ item.path[0] }}{% endif %}
+            </th>
+            <td>{{ mass(item.internal_return_g) }}</td>
+            <td>{% for origin,value in item.external_origin_g.items() %}{{ origin }} {{ mass(value) }} g{% if not loop.last %}<br>{% endif %}{% else %}查无{% endfor %}</td>
+            <td class="{{ 'pass' if item.settled else 'hold' }}">
+              {% if item.settled %}循环返料已结清，已结清重量不重复入账
+              {% elif item.state == 'no_origin' %}圈内重量已结清；查不到产地来路，整圈仍待证
+              {% elif item.state == 'incomplete_evidence' %}有外来原料，但圈内秤单不齐，整圈待证
+              {% else %}循环上游待证，整圈待证{% endif %}
+            </td>
+            <td title="圈内领用 {{ mass(item.circle_used_g or item.internal_return_g) }} g；下游领用 {{ mass(item.downstream_used_g or 0) }} g">
+              {{ mass(item.return_remaining_g if item.return_remaining_g is defined else 0) }}
+              <small>圈内 {{ mass(item.internal_return_g) }} · 下游 {{ mass(item.downstream_used_g or 0) }}</small>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">本卷没有循环返料分量。</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <output id="message" role="status"></output>
+    <p class="approved">在重量对账页结清循环返料；圈内互领只作一次核销，库存仅留圈内及下游领用后的余料。</p>
+  </section>
+
+  <section class="panel stub">
+    <div class="heading"><h2>仓内核销</h2><span>称签第二联</span></div>
+    <div class="warehouse">
+      <div><b>{{ mass(totals.origin_used_g) }} g</b><span>原料净领</span></div>
+      <div><b>{{ mass(totals.hold_g) }} g</b><span>工作批余料</span></div>
+      <div><b>{{ mass(totals.return_stock_g) }} g</b><span>未领返料</span></div>
+      <div><b>{{ mass(totals.delta_g) }} g</b><span>核销差额</span></div>
+    </div>
+    <p class="approved">复核签字 __________________</p>
+  </section>
+</div>

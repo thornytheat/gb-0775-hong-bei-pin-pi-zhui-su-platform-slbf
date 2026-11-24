@@ -8,11 +8,11 @@
 
 ## 复核路线
 
-1. 首页的重量勾稽卷联列出每批总秤、灌装、损耗、余量和待证。查 BA-07 的 100 g 待证与 10 g 负余量。
+1. 首页的重量勾稽卷联列出每批总秤、灌装、损耗、余量和待证，并在“循环返料结清联”对平圈内互领。查 BA-07 的 100 g 待证与 10 g 负余量；BA-09/BA-10 是无产地来路的空转闭环，圈内重量结清但整圈仍待证。
 2. 在投入来源核验查 RT-A 的两次领用，再查 RT-D 的 120 g 争抢。前者全部核入，后者 100 g 保留在库。
 3. 在拼批图比例传递选择 BA-03，查看两级返料的来源贡献。切换 BA-09 查看循环证据。
 4. 从批次留档复跑进行归档，再进入配方证据签发。打印卷联或下载 JSON，复核 PK-C 的 275 g 产地构成。
 
-`GET /api/lots/<phase>` 分阶段预览样例。向同路径 POST `{"files":{"origins":"...","jobs":"...","inputs":"...","outputs":"..."}}` 可试算自己的 CSV。`POST /api/runs` 接受同样的文件集合或 `{"sample":"dirty"}`。`GET /api/runs/<id>` 查归档，`POST /api/runs/<id>/rerun` 复算，`GET /api/export/<id>` 下载证据。
+`GET /api/lots/<phase>` 分阶段预览样例。向同路径 POST `{"files":{"origins":"...","jobs":"...","inputs":"...","outputs":"..."}}` 可试算自己的 CSV。`POST /api/runs` 接受同样的文件集合或 `{"sample":"dirty"}`。`GET /api/runs/<id>` 查归档，无请求体 `POST /api/runs/<id>/rerun` 复算原卷；补齐秤单后可在该请求中改传 `{"files":{...}}` 生成新指纹卷，循环结清按秤单号重算且不重复计产地账。`GET /api/export/<id>` 下载证据。
 
 [定义与边界](docs/DATA-DICTIONARY.md) 和 [模块与回归](docs/DEPTH.md) 记录完整规则。本机运行 `python -m pytest -q`。

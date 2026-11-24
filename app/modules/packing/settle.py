@@ -12,8 +12,10 @@ def pack(supply, trace, budgets):
     for work,row in trace['jobs'].items():
         plan=budgets[work]
         allowed=not row['codes']
-        if allowed:
-            for feed in row['lots']:
+        weight_closed=allowed or row.get('cycle_weight_settled',False)
+        if weight_closed:
+            feeds=row['lots'] or row.get('reported_inputs',[])
+            for feed in feeds:
                 if feed['source_kind']=='return':
                     drawn[feed['source']]+=Fraction(feed['g'])
         intake=Fraction(row['input_g'])
@@ -22,6 +24,7 @@ def pack(supply, trace, budgets):
         for output in plan['outputs']:
             amount=Fraction(output['g'])
             record={**output,'status':'certified' if allowed else 'pending',
+                    'weight_settled':weight_closed,
                     'origin_g':propagate(row['composition_g'],amount,intake) if allowed else {}}
             allocations[record['id']]=record
             if allowed:
@@ -35,8 +38,10 @@ def pack(supply, trace, budgets):
         entry=allocations[key]
         used=drawn[key]
         allowed=entry['status']=='certified'
-        left=Fraction(entry['g'])-used if allowed else None
+        weight_closed=allowed or entry.get('weight_settled',False)
+        left=Fraction(entry['g'])-used if weight_closed else None
         returns[key]={**entry,'drawn_g':str(used),'available_g':str(left) if left is not None else None,
+                      'weight_settled':weight_closed,
                       'request_g':supply['pools']['return'][key]['requested_g'],
                       'remaining_origin_g':propagate(entry['origin_g'],left,Fraction(entry['g'])) if left else {}}
     return dict(jobs=jobs,outputs=allocations,returns=returns,packages=packages)

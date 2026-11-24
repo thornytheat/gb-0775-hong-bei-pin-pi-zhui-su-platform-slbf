@@ -46,6 +46,11 @@ def original(key):
 @api.post('/runs/<key>/rerun')
 def rerun(key):
     old=cabinet().read(key)
+    body=request.get_json(silent=True)
+    if body and isinstance(body.get('files'),dict):
+        # 补齐秤单后以新原件生成新指纹卷；无请求体时仍执行原卷一致性复算。
+        files=receive({'files':body['files']})
+        return jsonify(seal_run(cabinet(),files))
     return jsonify(seal_run(cabinet(),old['files'],old['manifest']))
 
 
